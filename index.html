@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admisiones &amp; Entrevistas · CRM Escolar (Modelo REA / Odoo)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+    :root {
+      --coral: #F2675E;
+      --coral-dark: #DC544B;
+      --charcoal: #333333;
+      --odoo-plum: #F2675E;
+      --odoo-plum-dark: #DC544B;
+      --odoo-teal: #333333;
+      --odoo-bg: #FFFFFF;
+    }
+    body { font-family: 'Montserrat', system-ui, -apple-system, sans-serif; background: #F7F7F7; color: #333333; }
+    .odoo-topbar { background: #FFFFFF; color: #333333; border-bottom: 1px solid #E5E5E5; }
+    .btn-odoo { background: #F2675E; color: #FFFFFF; }
+    .btn-odoo:hover { background: #DC544B; }
+    .btn-teal { background: #333333; color: #FFFFFF; }
+    .btn-teal:hover { background: #1F1F1F; }
+    .kanban-col { min-width: 280px; max-width: 300px; }
+    .kanban-card { transition: border-color .12s ease; cursor: grab; }
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card.dragging { opacity: 0.55; }
+    .kanban-dropzone.drag-over { background: #FFF1F0; border: 2px dashed #F2675E; border-radius: 0.75rem; }
+    .tab-active { border-bottom: 3px solid #F2675E; font-weight: 700; color: #F2675E; }
+    .cal-day { min-height: 112px; }
+    .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOPBAR BLANCO FLAT + CTA CORAL -->
+  <header class="odoo-topbar sticky top-0 z-40 no-print">
+    <div class="max-w-[1600px] mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 bg-[#F2675E] text-white flex items-center justify-center font-black text-sm">
+            <i class="fa-solid fa-graduation-cap"></i>
+          </div>
+          <div>
+            <div id="schoolBrandTitle" class="font-extrabold text-sm uppercase tracking-wide text-[#333333] leading-tight">CRM Admisiones &amp; Familias</div>
+            <div id="schoolBrandSub" class="text-[10px] font-medium uppercase tracking-wider text-slate-500 leading-tight">Modelo REA · Pipeline, Visitas &amp; Entrevistas</div>
+          </div>
+        </div>
+
+        <nav class="hidden md:flex items-center gap-1 h-16" id="mainNav">
+          <button onclick="switchView('kanban')" data-view="kanban" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition tab-active">
+            <i class="fa-solid fa-columns"></i> Embudo Kanban
+          </button>
+          <button onclick="switchView('calendar')" data-view="calendar" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition">
+            <i class="fa-regular fa-calendar-days"></i> Calendario Visitas
+          </button>
+          <button onclick="switchView('families')" data-view="families" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition">
+            <i class="fa-solid fa-users"></i> Directorio Familias
+          </button>
+          <button onclick="switchView('dashboard')" data-view="dashboard" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition">
+            <i class="fa-solid fa-chart-pie"></i> Embudo &amp; KPIs
+          </button>
+          <button onclick="switchView('resources')" data-view="resources" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition">
+            <i class="fa-solid fa-layer-group"></i> Plazas (REA)
+          </button>
+          <button onclick="switchView('admin')" data-view="admin" class="nav-btn px-3 h-full text-xs flex items-center gap-2 hover:text-[#F2675E] transition">
+            <i class="fa-solid fa-sliders"></i> Administración
+          </button>
+        </nav>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="openLeadModal()" class="px-4 py-2 bg-[#F2675E] text-white hover:bg-[#DC544B] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-plus"></i> Nueva Familia
+        </button>
+        <div class="relative group">
+          <button class="px-3 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-[#333333] text-xs font-medium flex items-center gap-1.5 transition" title="Exportar / Importar">
+            <i class="fa-solid fa-database"></i>
+            <span class="hidden sm:inline">Datos</span>
+          </button>
+          <div class="hidden group-hover:block absolute right-0 mt-1 w-52 bg-white text-slate-700 rounded-lg shadow-xl border border-slate-200 py-1.5 z-50 text-xs">
+            <button onclick="exportAllICS()" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2">
+              <i class="fa-regular fa-calendar-plus text-[#333333]"></i> Exportar Agenda (.ics)
+            </button>
+            <button onclick="exportCSV()" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2">
+              <i class="fa-solid fa-file-csv text-emerald-600"></i> Exportar CSV (Odoo/Excel)
+            </button>
+            <button onclick="exportJSON()" class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2">
+              <i class="fa-solid fa-download text-indigo-600"></i> Backup Completo (.json)
+            </button>
+            <label class="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+              <i class="fa-solid fa-upload text-amber-600"></i> Importar Backup (.json)
+              <input type="file" accept=".json" class="hidden" onchange="importJSON(event)" />
+            </label>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button onclick="resetDemoData()" class="w-full text-left px-3.5 py-2 hover:bg-rose-50 text-rose-600 flex items-center gap-2">
+              <i class="fa-solid fa-rotate-left"></i> Restaurar Datos Demo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navegación móvil -->
+    <div class="flex md:hidden border-t border-white/15 overflow-x-auto text-xs">
+      <button onclick="switchView('kanban')" data-view="kanban" class="nav-btn-m px-3 py-2 whitespace-nowrap tab-active">Embudo</button>
+      <button onclick="switchView('calendar')" data-view="calendar" class="nav-btn-m px-3 py-2 whitespace-nowrap">Calendario</button>
+      <button onclick="switchView('families')" data-view="families" class="nav-btn-m px-3 py-2 whitespace-nowrap">Familias</button>
+      <button onclick="switchView('dashboard')" data-view="dashboard" class="nav-btn-m px-3 py-2 whitespace-nowrap">KPIs</button>
+      <button onclick="switchView('resources')" data-view="resources" class="nav-btn-m px-3 py-2 whitespace-nowrap">Plazas</button>
+      <button onclick="switchView('admin')" data-view="admin" class="nav-btn-m px-3 py-2 whitespace-nowrap">Admin</button>
+    </div>
+  </header>
+
+  <!-- BARRA DE BÚSQUEDA Y FILTROS ESTILO ODOO -->
+  <section class="bg-white border-b border-slate-200 px-4 py-2.5 no-print">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
+        <div class="relative flex-1 max-w-md">
+          <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input id="searchInput" type="text" oninput="renderCurrentView()" placeholder="Buscar familia, alumno, email, teléfono o colegio origen..."
+            class="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#F2675E]/30 focus:border-[#F2675E]" />
+        </div>
+        <select id="filterStageEdu" onchange="renderCurrentView()" class="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+          <option value="">Todas las etapas</option>
+          <option value="Infantil">Infantil (0-6)</option>
+          <option value="Primaria">Primaria</option>
+          <option value="ESO">ESO</option>
+          <option value="Bachillerato">Bachillerato</option>
+        </select>
+        <select id="filterOwner" onchange="renderCurrentView()" class="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+          <option value="">Todos los responsables</option>
+        </select>
+        <select id="filterOrigin" onchange="renderCurrentView()" class="text-xs border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+          <option value="">Todos los orígenes</option>
+          <option value="Web / Formulario">Web / Formulario</option>
+          <option value="Open Day">Open Day</option>
+          <option value="Recomendación Familia">Recomendación Familia</option>
+          <option value="Teléfono / WhatsApp">Teléfono / WhatsApp</option>
+          <option value="Redes Sociales">Redes Sociales</option>
+        </select>
+      </div>
+
+      <!-- Mini Resumen en vivo -->
+      <div class="flex items-center gap-4 text-xs text-slate-600" id="headerStats"></div>
+    </div>
+  </section>
+
+  <!-- CONTENIDO PRINCIPAL -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto p-4">
+
+    <!-- VISTA 1: KANBAN -->
+    <div id="view-kanban" class="view-panel">
+      <div id="kanbanBoard" class="flex gap-3.5 overflow-x-auto pb-4 scrollbar-thin items-start"></div>
+    </div>
+
+    <!-- VISTA 2: CALENDARIO -->
+    <div id="view-calendar" class="view-panel hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="lg:col-span-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div class="flex items-center gap-2">
+              <button onclick="changeMonth(-1)" class="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-xs"><i class="fa-solid fa-chevron-left"></i></button>
+              <h2 id="calMonthTitle" class="text-base font-bold text-slate-800 min-w-[180px] text-center capitalize"></h2>
+              <button onclick="changeMonth(1)" class="p-1.5 rounded-md border border-slate-200 hover:bg-slate-50 text-xs"><i class="fa-solid fa-chevron-right"></i></button>
+              <button onclick="goToday()" class="ml-2 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-xs font-medium">Hoy</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="openVisitModal()" class="btn-teal px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-calendar-plus"></i> Agendar Visita / Entrevista
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-500 uppercase border-b border-slate-200 pb-2 mb-1">
+            <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+          </div>
+          <div id="calendarGrid" class="grid grid-cols-7 gap-1"></div>
+        </div>
+
+        <!-- Agenda lateral de próximas citas -->
+        <div class="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+              <i class="fa-regular fa-clock text-[#F2675E]"></i> Próximas Visitas y Entrevistas
+            </h3>
+            <span id="upcomingCount" class="text-[11px] px-2 py-0.5 rounded-full bg-purple-50 text-[#F2675E] font-semibold"></span>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mb-3 text-[11px]">
+            <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200">Visita Centro</span>
+            <span class="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">Entrevista Dirección</span>
+            <span class="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Entrevista Orientación</span>
+            <span class="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">Llamada / Seguimiento</span>
+          </div>
+          <div id="upcomingList" class="space-y-2.5 overflow-y-auto max-h-[560px] pr-1 scrollbar-thin"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA 3: DIRECTORIO DE FAMILIAS (LIST VIEW ODOO) -->
+    <div id="view-families" class="view-panel hidden">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px]">
+                <th class="py-3 px-4">Familia / Unidad</th>
+                <th class="py-3 px-3">Candidato &amp; Curso</th>
+                <th class="py-3 px-3">Contacto Principal</th>
+                <th class="py-3 px-3">Etapa Embudo</th>
+                <th class="py-3 px-3">Próxima Cita</th>
+                <th class="py-3 px-3">Interés / Encaje</th>
+                <th class="py-3 px-3">Responsable</th>
+                <th class="py-3 px-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="familiesTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA 4: DASHBOARD & KPIS -->
+    <div id="view-dashboard" class="view-panel hidden space-y-4">
+      <div id="kpiCards" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <h3 class="font-bold text-sm text-slate-800 mb-3">Embudo de Conversión (Pipeline REA)</h3>
+          <div id="funnelChart" class="space-y-2.5"></div>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <h3 class="font-bold text-sm text-slate-800 mb-3">Distribución por Etapa Educativa &amp; Origen</h3>
+          <div id="breakdownChart" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <h3 class="font-bold text-sm text-slate-800 mb-2">Alertas de Seguimiento (SLA &gt; 48h sin actividad o citas pendientes de acta)</h3>
+        <div id="slaAlerts" class="space-y-2 text-xs"></div>
+      </div>
+    </div>
+
+    <!-- VISTA 5: RECURSOS / PLAZAS ESCOLARES (REA RESOURCES) -->
+    <div id="view-resources" class="view-panel hidden">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h2 class="font-bold text-base text-slate-800">Control de Plazas Escolares (REA Resources)</h2>
+            <p class="text-xs text-slate-500">Cupos disponibles vs. candidatos en Pre-admisión, Matriculados y Lista de Espera.</p>
+          </div>
+          <span id="resourcesAcademicYearBadge" class="text-xs px-2.5 py-1 rounded-md bg-purple-50 text-[#F2675E] font-semibold">Curso Académico 2026–2027</span>
+        </div>
+        <div id="resourcesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+      </div>
+    </div>
+
+    <!-- VISTA 6: PANEL DE ADMINISTRACIÓN (EQUIPO, ROLES, ENTREVISTADORES Y REGLAS) -->
+    <div id="view-admin" class="view-panel hidden space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Configuración del Centro -->
+        <div class="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
+          <h2 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+            <i class="fa-solid fa-school text-[#F2675E]"></i> Configuración del Centro y SLA
+          </h2>
+          <div class="space-y-2.5 text-xs">
+            <div>
+              <label class="block font-medium text-slate-600 mb-1">Nombre del Colegio / Institución</label>
+              <input id="adm_schoolName" type="text" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label class="block font-medium text-slate-600 mb-1">Curso Académico Activo</label>
+              <input id="adm_academicYear" type="text" placeholder="2026–2027" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+            </div>
+            <div>
+              <label class="block font-medium text-slate-600 mb-1">Alerta SLA (días sin movimiento)</label>
+              <input id="adm_slaDays" type="number" min="1" max="30" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+            </div>
+            <button onclick="saveAdminSettings()" class="btn-odoo w-full py-2 rounded-md text-xs font-semibold">
+              Guardar Configuración General
+            </button>
+          </div>
+
+          <div class="border-t border-slate-200 pt-3">
+            <h3 class="font-bold text-xs text-slate-700 mb-2">Añadir Curso / Cupo (REA Resource)</h3>
+            <div class="grid grid-cols-3 gap-2 text-xs mb-2">
+              <input id="adm_newGrade" type="text" placeholder="Ej. 2º ESO" class="col-span-2 border border-slate-300 rounded-md px-2 py-1.5" />
+              <input id="adm_newCap" type="number" min="1" value="25" class="border border-slate-300 rounded-md px-2 py-1.5" />
+            </div>
+            <div class="flex gap-2">
+              <select id="adm_newEdu" class="flex-1 text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                <option value="Infantil">Infantil</option>
+                <option value="Primaria">Primaria</option>
+                <option value="ESO">ESO</option>
+                <option value="Bachillerato">Bachillerato</option>
+              </select>
+              <button onclick="addResourceGrade()" class="btn-teal px-3 py-1.5 rounded-md text-xs font-semibold">Añadir Curso</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Equipo Directivo, Admisiones y Entrevistadores -->
+        <div class="lg:col-span-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-bold text-sm text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-user-shield text-[#333333]"></i> Equipo, Roles y Entrevistadores (Agents Internos)
+              </h2>
+              <p class="text-[11px] text-slate-500">Define quién es Director/a, Responsable de Admisiones, Orientación y quién puede realizar entrevistas.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button onclick="reassignLegacyOwners()" class="px-2.5 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-[11px] font-medium text-slate-700">
+                <i class="fa-solid fa-arrows-rotate mr-1 text-[#333333]"></i> Reasignar expedientes antiguos al equipo actual
+              </button>
+              <button onclick="clearDemoLeadsAndVisits()" class="px-2.5 py-1.5 rounded-md border border-rose-200 hover:bg-rose-50 text-[11px] font-medium text-rose-600">
+                <i class="fa-solid fa-broom mr-1"></i> Vaciar familias y citas demo
+              </button>
+            </div>
+          </div>
+
+          <!-- Formulario alta rápida de miembro -->
+          <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-12 gap-2 text-xs items-end">
+            <div class="sm:col-span-3">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Nombre *</label>
+              <input id="adm_mName" type="text" placeholder="Ej. Ana López" class="w-full border border-slate-300 rounded-md px-2 py-1.5 bg-white" />
+            </div>
+            <div class="sm:col-span-3">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Rol / Cargo</label>
+              <select id="adm_mRole" class="w-full border border-slate-300 rounded-md px-2 py-1.5 bg-white">
+                <option value="Director/a">Director/a</option>
+                <option value="Resp. Admisiones">Resp. Admisiones</option>
+                <option value="Orientación">Orientación</option>
+                <option value="Jefatura de Estudios">Jefatura de Estudios</option>
+                <option value="Secretaría">Secretaría</option>
+              </select>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[11px] font-medium text-slate-600 mb-1">Etapas</label>
+              <input id="adm_mStages" type="text" placeholder="Todas / ESO..." class="w-full border border-slate-300 rounded-md px-2 py-1.5 bg-white" />
+            </div>
+            <div class="sm:col-span-2 flex items-center gap-1.5 pb-1.5">
+              <input id="adm_mInterviewer" type="checkbox" checked class="accent-[#333333]" />
+              <label for="adm_mInterviewer" class="text-[11px] text-slate-700 cursor-pointer">Entrevistador/a</label>
+            </div>
+            <div class="sm:col-span-2">
+              <button onclick="addTeamMember()" class="btn-teal w-full py-1.5 rounded-md font-semibold">Añadir</button>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] text-slate-600 uppercase">
+                  <th class="py-2 px-3">Nombre</th>
+                  <th class="py-2 px-3">Rol / Cargo</th>
+                  <th class="py-2 px-3">Etapas</th>
+                  <th class="py-2 px-3 text-center">Entrevistador</th>
+                  <th class="py-2 px-3 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="adminTeamTable" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL FICHA COMPLETA DE FAMILIA & ENTREVISTA (ESTILO ODOO FORM VIEW + CHATTER) -->
+  <div id="leadModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-2 sm:p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+      <!-- Header Modal -->
+      <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-[#F2675E] text-white flex items-center justify-center font-bold text-sm">
+            <i class="fa-solid fa-house-user"></i>
+          </div>
+          <div>
+            <h2 id="leadModalTitle" class="font-bold text-base text-slate-800">Ficha de Familia</h2>
+            <p id="leadModalSub" class="text-[11px] text-slate-500">Unidad Familiar · Expediente de Admisión</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnDeleteLead" onclick="deleteCurrentLead()" class="hidden px-2.5 py-1.5 rounded-md text-xs text-rose-600 hover:bg-rose-50 border border-rose-200">
+            <i class="fa-solid fa-trash-can"></i> Eliminar
+          </button>
+          <button onclick="closeLeadModal()" class="px-3 py-1.5 rounded-md text-xs border border-slate-300 hover:bg-slate-100">Cerrar</button>
+          <button onclick="saveLeadForm()" class="btn-odoo px-4 py-1.5 rounded-md text-xs font-semibold shadow-xs">Guardar Cambios</button>
+        </div>
+      </div>
+
+      <!-- Statusbar de Etapas estilo Odoo -->
+      <div id="modalStageBar" class="px-5 py-2 bg-white border-b border-slate-200 flex items-center gap-1 overflow-x-auto text-[11px]"></div>
+
+      <!-- Cuerpo Modal: Formulario (izq) + Chatter/Entrevista (der) -->
+      <div class="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-12">
+        <!-- Columna Izquierda: Datos de Familia, Alumno e Interés -->
+        <div class="lg:col-span-7 p-5 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200">
+          <input type="hidden" id="f_id" />
+
+          <!-- Bloque 1: Unidad Familiar y Progenitores -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[#F2675E] mb-2.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-users"></i> 1. Agentes · Unidad Familiar y Contactos
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="sm:col-span-2">
+                <label class="block font-medium text-slate-600 mb-1">Nombre de la Familia / Título del Expediente *</label>
+                <input id="f_familyName" type="text" placeholder="Ej. Familia García Morales" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Progenitor / Tutor 1 *</label>
+                <input id="f_parent1" type="text" placeholder="Nombre y apellidos" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Progenitor / Tutor 2</label>
+                <input id="f_parent2" type="text" placeholder="Nombre y apellidos" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Teléfono / WhatsApp *</label>
+                <input id="f_phone" type="tel" placeholder="+34 600 000 000" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Correo electrónico *</label>
+                <input id="f_email" type="email" placeholder="familia@ejemplo.com" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloque 2: Alumno Candidato -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[#F2675E] mb-2.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-child-reaching"></i> 2. Alumno/a Candidato/a y Curso Objetivo
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div class="sm:col-span-2">
+                <label class="block font-medium text-slate-600 mb-1">Nombre del Alumno/a *</label>
+                <input id="f_studentName" type="text" placeholder="Ej. Mateo García" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Edad / Año Nac.</label>
+                <input id="f_studentAge" type="text" placeholder="Ej. 6 años (2020)" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Etapa Educativa</label>
+                <select id="f_stageEdu" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+                  <option value="Infantil">Infantil</option>
+                  <option value="Primaria">Primaria</option>
+                  <option value="ESO">ESO</option>
+                  <option value="Bachillerato">Bachillerato</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Curso Solicitado</label>
+                <input id="f_targetGrade" type="text" placeholder="Ej. 1º Primaria" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Colegio de Procedencia</label>
+                <input id="f_originSchool" type="text" placeholder="Centro actual" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloque 3: Datos de Interés Comercial & Pedagógico -->
+          <div>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[#F2675E] mb-2.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-star"></i> 3. Datos de Interés, Embudo y Encaje
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Etapa del Embudo</label>
+                <select id="f_pipelineStage" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white"></select>
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Probabilidad (%)</label>
+                <input id="f_probability" type="number" min="0" max="100" step="5" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Prioridad / Interés</label>
+                <select id="f_priority" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+                  <option value="3">Alta (3 estrellas)</option>
+                  <option value="2">Media (2 estrellas)</option>
+                  <option value="1">Baja (1 estrella)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Origen del Lead</label>
+                <select id="f_origin" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+                  <option value="Web / Formulario">Web / Formulario</option>
+                  <option value="Open Day">Open Day</option>
+                  <option value="Recomendación Familia">Recomendación Familia</option>
+                  <option value="Teléfono / WhatsApp">Teléfono / WhatsApp</option>
+                  <option value="Redes Sociales">Redes Sociales</option>
+                </select>
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Responsable Interno</label>
+                <select id="f_owner" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white"></select>
+              </div>
+              <div>
+                <label class="block font-medium text-slate-600 mb-1">Servicios de Interés</label>
+                <input id="f_services" type="text" placeholder="Comedor, Ruta, Beca, Extraesc." class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+              </div>
+              <div class="sm:col-span-3">
+                <label class="block font-medium text-slate-600 mb-1">Motivación principal y necesidades detectadas (Atención a la Diversidad / Idiomas / Valores)</label>
+                <textarea id="f_interests" rows="2" placeholder="Qué busca la familia, inquietudes, necesidades educativas especiales o fortalezas..." class="w-full border border-slate-300 rounded-md px-2.5 py-1.5"></textarea>
+              </div>
+              <div class="sm:col-span-3 hidden" id="lostReasonWrap">
+                <label class="block font-medium text-rose-600 mb-1">Motivo de Pérdida / Lista de Espera</label>
+                <input id="f_lostReason" type="text" placeholder="Ej. Sin plaza en 1º Primaria / Precio / Distancia / Eligen otro centro" class="w-full border border-rose-300 rounded-md px-2.5 py-1.5 bg-rose-50/40" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloque 4: Acta de Entrevista -->
+          <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[#333333] mb-2.5 flex items-center gap-1.5">
+              <i class="fa-solid fa-clipboard-check"></i> 4. Guía &amp; Acta de Entrevista Familia–Colegio
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-3">
+              <label class="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded border border-slate-200 cursor-pointer">
+                <input id="f_chkTour" type="checkbox" class="accent-[#333333]" /> Visita realizada
+              </label>
+              <label class="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded border border-slate-200 cursor-pointer">
+                <input id="f_chkRgpd" type="checkbox" class="accent-[#333333]" /> RGPD firmado
+              </label>
+              <label class="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded border border-slate-200 cursor-pointer">
+                <input id="f_chkDocs" type="checkbox" class="accent-[#333333]" /> Boletines / Docs
+              </label>
+              <label class="flex items-center gap-1.5 bg-white px-2 py-1.5 rounded border border-slate-200 cursor-pointer">
+                <input id="f_chkOrient" type="checkbox" class="accent-[#333333]" /> Derivar Orientación
+              </label>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs mb-2.5">
+              <div>
+                <label class="block text-slate-600 mb-1">Encaje Proyecto (1-5)</label>
+                <input id="f_scoreFit" type="number" min="1" max="5" class="w-full border border-slate-300 rounded-md px-2 py-1 bg-white" />
+              </div>
+              <div>
+                <label class="block text-slate-600 mb-1">Entrevistador/a</label>
+                <select id="f_interviewer" class="w-full border border-slate-300 rounded-md px-2 py-1 bg-white"></select>
+              </div>
+              <div>
+                <label class="block text-slate-600 mb-1">Fecha Entrevista</label>
+                <input id="f_interviewDate" type="date" class="w-full border border-slate-300 rounded-md px-2 py-1 bg-white" />
+              </div>
+            </div>
+            <textarea id="f_interviewNotes" rows="3" placeholder="Resumen de la entrevista, preguntas clave de la familia, acuerdos y siguiente paso..." class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-xs bg-white"></textarea>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Citas de la Familia + Chatter / Trazabilidad REA -->
+        <div class="lg:col-span-5 bg-slate-50/70 p-5 flex flex-col gap-4">
+          <!-- Acciones rápidas de comunicación -->
+          <div class="flex flex-wrap gap-2">
+            <a id="quickWa" href="#" target="_blank" class="px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium flex items-center gap-1.5">
+              <i class="fa-brands fa-whatsapp"></i> WhatsApp
+            </a>
+            <a id="quickMail" href="#" class="px-2.5 py-1.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white text-xs font-medium flex items-center gap-1.5">
+              <i class="fa-regular fa-envelope"></i> Email
+            </a>
+            <button type="button" onclick="openVisitForCurrentLead()" class="btn-teal px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5">
+              <i class="fa-regular fa-calendar-plus"></i> Agendar Cita
+            </button>
+          </div>
+
+          <!-- Citas vinculadas -->
+          <div class="bg-white rounded-lg border border-slate-200 p-3">
+            <h4 class="text-xs font-bold text-slate-700 mb-2 flex items-center justify-between">
+              <span><i class="fa-regular fa-calendar text-[#F2675E] mr-1"></i> Visitas y Entrevistas Programadas</span>
+            </h4>
+            <div id="modalLeadVisits" class="space-y-1.5 text-xs"></div>
+          </div>
+
+          <!-- Chatter estilo Odoo -->
+          <div class="bg-white rounded-lg border border-slate-200 p-3 flex-1 flex flex-col">
+            <h4 class="text-xs font-bold text-slate-700 mb-2">
+              <i class="fa-regular fa-comments text-[#F2675E] mr-1"></i> Chatter · Historial de Eventos (REA)
+            </h4>
+            <div class="flex gap-1.5 mb-2.5">
+              <select id="chatterType" class="text-[11px] border border-slate-300 rounded-md px-2 py-1 bg-white">
+                <option value="Nota">Nota interna</option>
+                <option value="Llamada">Llamada</option>
+                <option value="Email">Email</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Visita">Visita</option>
+              </select>
+              <input id="chatterInput" type="text" placeholder="Registrar llamada, nota o acuerdo..." class="flex-1 text-xs border border-slate-300 rounded-md px-2.5 py-1" />
+              <button type="button" onclick="addChatterNote()" class="btn-odoo px-2.5 py-1 rounded-md text-xs font-medium">Añadir</button>
+            </div>
+            <div id="chatterTimeline" class="space-y-2 overflow-y-auto max-h-[280px] pr-1 scrollbar-thin text-xs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AGENDAR VISITA / ENTREVISTA EN CALENDARIO -->
+  <div id="visitModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md border border-slate-200 overflow-hidden">
+      <div class="px-4 py-3 bg-[#333333] text-white flex items-center justify-between">
+        <h3 class="font-bold text-sm flex items-center gap-2"><i class="fa-regular fa-calendar-check"></i> Agendar Visita / Entrevista</h3>
+        <button onclick="closeVisitModal()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-4 space-y-3 text-xs">
+        <input type="hidden" id="v_id" />
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">Familia *</label>
+          <select id="v_leadId" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Tipo de Evento *</label>
+            <select id="v_type" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white">
+              <option value="Visita Centro">Visita Centro</option>
+              <option value="Entrevista Dirección">Entrevista Dirección</option>
+              <option value="Entrevista Orientación">Entrevista Orientación</option>
+              <option value="Llamada / Seguimiento">Llamada / Seguimiento</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Responsable</label>
+            <select id="v_staff" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 bg-white"></select>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2.5">
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Fecha *</label>
+            <input id="v_date" type="date" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Hora *</label>
+            <input id="v_time" type="time" value="10:00" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+          </div>
+          <div>
+            <label class="block font-medium text-slate-600 mb-1">Duración (min)</label>
+            <input id="v_duration" type="number" value="45" min="15" step="15" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">Lugar / Enlace</label>
+          <input id="v_location" type="text" value="Recepción Colegio / Sala Admisiones" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5" />
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">Notas previas</label>
+          <textarea id="v_notes" rows="2" placeholder="Puntos a tratar, documentación a traer..." class="w-full border border-slate-300 rounded-md px-2.5 py-1.5"></textarea>
+        </div>
+      </div>
+      <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+        <button id="btnDeleteVisit" onclick="deleteCurrentVisit()" class="hidden text-xs text-rose-600 hover:underline">Eliminar cita</button>
+        <div class="flex gap-2 ml-auto">
+          <button onclick="closeVisitModal()" class="px-3 py-1.5 rounded-md border border-slate-300 text-xs">Cancelar</button>
+          <button onclick="saveVisitForm()" class="btn-teal px-4 py-1.5 rounded-md text-xs font-semibold">Guardar Cita</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ============================================================================
+// MODELO DE DATOS REA (RESOURCES · EVENTS · AGENTS) + ESTADO PERSISTENTE
+// ============================================================================
+const STORAGE_KEY = 'crm_admisiones_rea_v1';
+
+const STAGES = [
+  { id: 'nuevo', label: 'Nuevo Lead', color: 'border-t-slate-400', badge: 'bg-slate-100 text-slate-700', prob: 10 },
+  { id: 'contactado', label: 'Contactado', color: 'border-t-sky-500', badge: 'bg-sky-50 text-sky-700', prob: 25 },
+  { id: 'visita', label: 'Visita Agendada', color: 'border-t-indigo-500', badge: 'bg-indigo-50 text-indigo-700', prob: 45 },
+  { id: 'entrevista', label: 'Entrevista Realizada', color: 'border-t-purple-600', badge: 'bg-purple-50 text-purple-700', prob: 65 },
+  { id: 'preadmitido', label: 'Pre-admitido / Reserva', color: 'border-t-amber-500', badge: 'bg-amber-50 text-amber-800', prob: 85 },
+  { id: 'matriculado', label: 'Matriculado', color: 'border-t-emerald-600', badge: 'bg-emerald-50 text-emerald-700', prob: 100 },
+  { id: 'perdido', label: 'Lista Espera / Perdido', color: 'border-t-rose-500', badge: 'bg-rose-50 text-rose-700', prob: 0 }
+];
+
+const DEFAULT_RESOURCES = [
+  { grade: 'Infantil 3 años', stageEdu: 'Infantil', capacity: 50 },
+  { grade: 'Infantil 4-5 años', stageEdu: 'Infantil', capacity: 12 },
+  { grade: '1º Primaria', stageEdu: 'Primaria', capacity: 25 },
+  { grade: '2º-6º Primaria', stageEdu: 'Primaria', capacity: 18 },
+  { grade: '1º ESO', stageEdu: 'ESO', capacity: 30 },
+  { grade: '1º Bachillerato', stageEdu: 'Bachillerato', capacity: 24 }
+];
+
+function daysOffsetISO(days) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function getDemoState() {
+  return {
+    leads: [
+      {
+        id: 'fam_1',
+        familyName: 'Familia García Morales',
+        parent1: 'Carlos García',
+        parent2: 'Elena Morales',
+        phone: '+34 612 345 678',
+        email: 'elena.morales@ejemplo.es',
+        studentName: 'Mateo García',
+        studentAge: '6 años (2020)',
+        stageEdu: 'Primaria',
+        targetGrade: '1º Primaria',
+        originSchool: 'CEIP Cervantes',
+        pipelineStage: 'visita',
+        probability: 50,
+        priority: 3,
+        origin: 'Open Day',
+        owner: 'Laura (Admisiones)',
+        services: 'Comedor, Inglés Extraescolar',
+        interests: 'Buscan metodología activa, atención individualizada y buen programa bilingüe.',
+        lostReason: '',
+        chkTour: false, chkRgpd: true, chkDocs: true, chkOrient: false,
+        scoreFit: 5, interviewer: 'Dirección Primaria', interviewDate: '',
+        interviewNotes: '',
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        chatter: [
+          { ts: new Date(Date.now() - 172800000).toISOString(), type: 'Nota', text: 'Asistieron al Open Day del sábado. Muy interesados en 1º Primaria.' },
+          { ts: new Date(Date.now() - 86400000).toISOString(), type: 'Llamada', text: 'Confirmada visita guiada con recorrido por aulas de Primaria.' }
+        ]
+      },
+      {
+        id: 'fam_2',
+        familyName: 'Familia Navarro Ruiz',
+        parent1: 'Sofía Ruiz',
+        parent2: 'Javier Navarro',
+        phone: '+34 644 987 321',
+        email: 's.ruiz@ejemplo.es',
+        studentName: 'Lucía Navarro',
+        studentAge: '12 años (2014)',
+        stageEdu: 'ESO',
+        targetGrade: '1º ESO',
+        originSchool: 'Colegio San Marcos',
+        pipelineStage: 'entrevista',
+        probability: 75,
+        priority: 3,
+        origin: 'Recomendación Familia',
+        owner: 'Carlos (Dirección)',
+        services: 'Ruta escolar, Comedor',
+        interests: 'Recomendados por familia de 3º ESO. Interés en orientación académica y apoyo en matemáticas.',
+        lostReason: '',
+        chkTour: true, chkRgpd: true, chkDocs: true, chkOrient: true,
+        scoreFit: 5, interviewer: 'Carlos (Dirección) + Orientación', interviewDate: daysOffsetISO(-2),
+        interviewNotes: 'Excelente sintonía con la familia. Lucía muy motivada. Se sugiere entrevista breve con Orientación para plan de acogida.',
+        updatedAt: new Date(Date.now() - 43200000).toISOString(),
+        chatter: [
+          { ts: new Date(Date.now() - 259200000).toISOString(), type: 'Visita', text: 'Visita completa realizada. Muy buena impresión de laboratorios.' },
+          { ts: new Date(Date.now() - 43200000).toISOString(), type: 'Nota', text: 'Acta de entrevista completada. Pendiente envío de propuesta de reserva.' }
+        ]
+      },
+      {
+        id: 'fam_3',
+        familyName: 'Familia Chen Wang',
+        parent1: 'Wei Chen',
+        parent2: 'Lin Wang',
+        phone: '+34 699 112 233',
+        email: 'weichen@ejemplo.es',
+        studentName: 'Leo Chen',
+        studentAge: '3 años (2023)',
+        stageEdu: 'Infantil',
+        targetGrade: 'Infantil 3 años',
+        originSchool: 'Escuela Infantil Sol',
+        pipelineStage: 'nuevo',
+        probability: 15,
+        priority: 2,
+        origin: 'Web / Formulario',
+        owner: 'Laura (Admisiones)',
+        services: 'Horario ampliado mañana, Comedor',
+        interests: 'Solicitan información de horarios, periodo de adaptación y proyecto de inmersión lingüística.',
+        lostReason: '',
+        chkTour: false, chkRgpd: true, chkDocs: false, chkOrient: false,
+        scoreFit: 4, interviewer: '', interviewDate: '',
+        interviewNotes: '',
+        updatedAt: new Date(Date.now() - 259200000).toISOString(),
+        chatter: [
+          { ts: new Date(Date.now() - 259200000).toISOString(), type: 'Nota', text: 'Lead recibido desde formulario web.' }
+        ]
+      },
+      {
+        id: 'fam_4',
+        familyName: 'Familia Mendoza Pérez',
+        parent1: 'Ana Pérez',
+        parent2: 'Luis Mendoza',
+        phone: '+34 655 778 899',
+        email: 'ana.perez@ejemplo.es',
+        studentName: 'Hugo Mendoza',
+        studentAge: '16 años (2010)',
+        stageEdu: 'Bachillerato',
+        targetGrade: '1º Bachillerato',
+        originSchool: 'IES Norte',
+        pipelineStage: 'preadmitido',
+        probability: 90,
+        priority: 3,
+        origin: 'Teléfono / WhatsApp',
+        owner: 'Carlos (Dirección)',
+        services: 'Bachillerato Científico-Tecnológico',
+        interests: 'Buen expediente (media 8,7). Buscan preparación EBAU y orientación universitaria.',
+        lostReason: '',
+        chkTour: true, chkRgpd: true, chkDocs: true, chkOrient: false,
+        scoreFit: 5, interviewer: 'Jefatura Bachillerato', interviewDate: daysOffsetISO(-5),
+        interviewNotes: 'Admitido en modalidad Ciencias. Enviado enlace de reserva de plaza.',
+        updatedAt: new Date(Date.now() - 20000000).toISOString(),
+        chatter: [
+          { ts: new Date(Date.now() - 20000000).toISOString(), type: 'Email', text: 'Enviada carta de pre-admisión y documento de reserva.' }
+        ]
+      },
+      {
+        id: 'fam_5',
+        familyName: 'Familia Ortiz Vega',
+        parent1: 'Marta Vega',
+        parent2: '',
+        phone: '+34 677 223 344',
+        email: 'marta.vega@ejemplo.es',
+        studentName: 'Valeria Ortiz',
+        studentAge: '8 años (2018)',
+        stageEdu: 'Primaria',
+        targetGrade: '2º-6º Primaria',
+        originSchool: 'Colegio Los Pinos',
+        pipelineStage: 'matriculado',
+        probability: 100,
+        priority: 3,
+        origin: 'Open Day',
+        owner: 'Laura (Admisiones)',
+        services: 'Comedor, Robótica',
+        interests: 'Cambio de domicilio. Matrícula formalizada y pago de reserva completado.',
+        lostReason: '',
+        chkTour: true, chkRgpd: true, chkDocs: true, chkOrient: false,
+        scoreFit: 5, interviewer: 'Dirección Primaria', interviewDate: daysOffsetISO(-10),
+        interviewNotes: 'Todo en orden. Trasladado expediente a Secretaría.',
+        updatedAt: new Date(Date.now() - 86400000).toISOString(),
+        chatter: [
+          { ts: new Date(Date.now() - 86400000).toISOString(), type: 'Nota', text: 'Matrícula formalizada 100%.' }
+        ]
+      }
+    ],
+    visits: [
+      {
+        id: 'vis_1',
+        leadId: 'fam_1',
+        type: 'Visita Centro',
+        staff: 'Laura (Admisiones)',
+        date: daysOffsetISO(1),
+        time: '10:30',
+        duration: 45,
+        location: 'Recepción Principal',
+        notes: 'Mostrar aulas de 1º Primaria, patio y comedor.'
+      },
+      {
+        id: 'vis_2',
+        leadId: 'fam_2',
+        type: 'Entrevista Orientación',
+        staff: 'Dpto. Orientación',
+        date: daysOffsetISO(2),
+        time: '16:00',
+        duration: 45,
+        location: 'Despacho Orientación',
+        notes: 'Entrevista de seguimiento y plan de acogida 1º ESO.'
+      },
+      {
+        id: 'vis_3',
+        leadId: 'fam_3',
+        type: 'Llamada / Seguimiento',
+        staff: 'Laura (Admisiones)',
+        date: daysOffsetISO(0),
+        time: '12:00',
+        duration: 15,
+        location: 'Teléfono',
+        notes: 'Primer contacto y propuesta de fecha de visita Infantil.'
+      }
+    ],
+    resources: DEFAULT_RESOURCES,
+    settings: { schoolName: 'CRM Admisiones & Familias', academicYear: '2026–2027', slaDays: 2 },
+    team: [
+      { id: 'tm_1', name: 'Carlos (Dirección)', role: 'Director/a', stages: 'Todas', interviewer: true },
+      { id: 'tm_2', name: 'Laura (Admisiones)', role: 'Resp. Admisiones', stages: 'Infantil, Primaria', interviewer: true },
+      { id: 'tm_3', name: 'Dpto. Orientación', role: 'Orientación', stages: 'Todas', interviewer: true },
+      { id: 'tm_4', name: 'Jefatura Bachillerato', role: 'Jefatura de Estudios', stages: 'ESO, Bachillerato', interviewer: true },
+      { id: 'tm_5', name: 'Secretaría', role: 'Secretaría', stages: 'Todas', interviewer: false }
+    ]
+  };
+}
+
+let state = null;
+let currentView = 'kanban';
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+let draggedLeadId = null;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.leads) && Array.isArray(parsed.visits)) {
+        const demo = getDemoState();
+        if (!parsed.resources) parsed.resources = demo.resources;
+        if (!parsed.settings) parsed.settings = demo.settings;
+        if (!Array.isArray(parsed.team)) parsed.team = demo.team;
+        return parsed;
+      }
+    }
+  } catch (e) { console.warn('Error cargando localStorage:', e); }
+  const demo = getDemoState();
+  saveState(demo);
+  return demo;
+}
+
+function saveState(next = state) {
+  state = next;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('No se pudo guardar en localStorage:', e);
+  }
+}
+
+state = loadState();
+
+function resetDemoData() {
+  if (!confirm('¿Restaurar los datos de demostración? Se perderán los cambios locales actuales.')) return;
+  saveState(getDemoState());
+  populateOwnerFilter();
+  renderCurrentView();
+}
+
+// ============================================================================
+// UTILIDADES Y FILTROS
+// ============================================================================
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function daysSince(iso) {
+  if (!iso) return 0;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+}
+
+function getFilteredLeads() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  const edu = document.getElementById('filterStageEdu').value;
+  const owner = document.getElementById('filterOwner').value;
+  const origin = document.getElementById('filterOrigin').value;
+
+  return state.leads.filter(l => {
+    if (edu && l.stageEdu !== edu) return false;
+    if (owner && l.owner !== owner) return false;
+    if (origin && l.origin !== origin) return false;
+    if (q) {
+      const blob = `${l.familyName} ${l.parent1} ${l.parent2} ${l.studentName} ${l.email} ${l.phone} ${l.originSchool} ${l.targetGrade} ${l.interests}`.toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function populateOwnerFilter() {
+  const sel = document.getElementById('filterOwner');
+  const prev = sel.value;
+  const owners = [...new Set((state.team || []).map(m => m.name).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos los responsables</option>' + owners.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
+  sel.value = owners.includes(prev) ? prev : '';
+}
+
+function populateTeamSelects(selectedOwner = '', selectedInterviewer = '', selectedStaff = '') {
+  const team = state.team || [];
+  const allNames = [...new Set(team.map(m => m.name).filter(Boolean))];
+  const interviewers = [...new Set(team.filter(m => m.interviewer).map(m => m.name).filter(Boolean))];
+
+  const ownerSel = document.getElementById('f_owner');
+  if (ownerSel) {
+    ownerSel.innerHTML = allNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    ownerSel.value = allNames.includes(selectedOwner) ? selectedOwner : (allNames[0] || '');
+  }
+
+  const intSel = document.getElementById('f_interviewer');
+  if (intSel) {
+    intSel.innerHTML = '<option value="">— Sin asignar —</option>' + interviewers.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    intSel.value = interviewers.includes(selectedInterviewer) ? selectedInterviewer : '';
+  }
+
+  const staffSel = document.getElementById('v_staff');
+  if (staffSel) {
+    staffSel.innerHTML = allNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+    staffSel.value = allNames.includes(selectedStaff) ? selectedStaff : (allNames[0] || '');
+  }
+}
+
+function applySchoolBranding() {
+  const titleEl = document.getElementById('schoolBrandTitle');
+  const subEl = document.getElementById('schoolBrandSub');
+  const badgeEl = document.getElementById('resourcesAcademicYearBadge');
+  if (titleEl && state.settings?.schoolName) titleEl.textContent = state.settings.schoolName;
+  if (subEl && state.settings?.academicYear) subEl.textContent = `Modelo REA · Curso ${state.settings.academicYear}`;
+  if (badgeEl && state.settings?.academicYear) badgeEl.textContent = `Curso Académico ${state.settings.academicYear}`;
+}
+
+function updateHeaderStats() {
+  const leads = getFilteredLeads();
+  const active = leads.filter(l => l.pipelineStage !== 'perdido' && l.pipelineStage !== 'matriculado').length;
+  const enrolled = leads.filter(l => l.pipelineStage === 'matriculado').length;
+  const upcomingVisits = state.visits.filter(v => v.date >= new Date().toISOString().slice(0, 10)).length;
+  document.getElementById('headerStats').innerHTML = `
+    <span><strong class="text-slate-800">${leads.length}</strong> familias</span>
+    <span><strong class="text-[#F2675E]">${active}</strong> en proceso</span>
+    <span><strong class="text-emerald-600">${enrolled}</strong> matriculados</span>
+    <span><strong class="text-[#333333]">${upcomingVisits}</strong> citas próximas</span>
+  `;
+}
+
+// ============================================================================
+// NAVEGACIÓN DE VISTAS
+// ============================================================================
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+  document.getElementById(`view-${view}`).classList.remove('hidden');
+
+  document.querySelectorAll('.nav-btn, .nav-btn-m').forEach(btn => {
+    btn.classList.toggle('tab-active', btn.dataset.view === view);
+  });
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  applySchoolBranding();
+  updateHeaderStats();
+  if (currentView === 'kanban') renderKanban();
+  else if (currentView === 'calendar') renderCalendar();
+  else if (currentView === 'families') renderFamiliesTable();
+  else if (currentView === 'dashboard') renderDashboard();
+  else if (currentView === 'resources') renderResources();
+  else if (currentView === 'admin') renderAdmin();
+}
+
+// ============================================================================
+// VISTA 1: KANBAN DRAG & DROP
+// ============================================================================
+function renderKanban() {
+  const board = document.getElementById('kanbanBoard');
+  const leads = getFilteredLeads();
+
+  board.innerHTML = STAGES.map(st => {
+    const items = leads.filter(l => l.pipelineStage === st.id);
+    const avgProb = items.length ? Math.round(items.reduce((s, x) => s + Number(x.probability || 0), 0) / items.length) : 0;
+
+    return `
+      <div class="kanban-col shrink-0 bg-slate-100/90 rounded-xl p-2.5 border border-slate-200 border-t-4 ${st.color}">
+        <div class="flex items-center justify-between mb-2.5 px-1">
+          <div>
+            <div class="font-bold text-xs text-slate-800">${esc(st.label)}</div>
+            <div class="text-[10px] text-slate-500">${items.length} fam. · Prob. media ${avgProb}%</div>
+          </div>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full ${st.badge}">${items.length}</span>
+        </div>
+        <div class="kanban-dropzone space-y-2.5 min-h-[120px]" data-stage="${st.id}"
+          ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${st.id}')">
+          ${items.map(l => renderKanbanCard(l)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderKanbanCard(l) {
+  const staleDays = daysSince(l.updatedAt);
+  const isStale = staleDays >= 2 && l.pipelineStage !== 'matriculado' && l.pipelineStage !== 'perdido';
+  const nextVisit = state.visits
+    .filter(v => v.leadId === l.id && v.date >= new Date().toISOString().slice(0, 10))
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
+  const stars = '★'.repeat(Number(l.priority || 2)) + '☆'.repeat(3 - Number(l.priority || 2));
+
+  return `
+    <div class="kanban-card bg-white rounded-lg p-3 shadow-xs border border-slate-200 hover:border-[#F2675E]/60"
+         draggable="true" ondragstart="onDragStart(event, '${l.id}')" ondragend="onDragEnd(event)"
+         onclick="openLeadModal('${l.id}')">
+      <div class="flex items-start justify-between gap-2 mb-1">
+        <div class="font-bold text-xs text-slate-800 leading-snug">${esc(l.familyName)}</div>
+        <span class="text-[11px] text-amber-500 shrink-0" title="Prioridad">${stars}</span>
+      </div>
+      <div class="text-[11px] text-slate-600 mb-2">
+        <span class="font-semibold text-[#F2675E]">${esc(l.studentName)}</span> · ${esc(l.targetGrade)}
+      </div>
+      <div class="flex flex-wrap gap-1 mb-2 text-[10px]">
+        <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">${esc(l.stageEdu)}</span>
+        <span class="px-1.5 py-0.5 rounded bg-purple-50 text-[#F2675E] font-medium">${Number(l.probability)}%</span>
+        ${isStale ? `<span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-semibold"><i class="fa-solid fa-triangle-exclamation"></i> ${staleDays}d sin mov.</span>` : ''}
+      </div>
+      ${nextVisit ? `
+        <div class="text-[10px] bg-teal-50 text-[#333333] border border-teal-200 rounded px-2 py-1 mb-2 flex items-center gap-1.5">
+          <i class="fa-regular fa-calendar"></i>
+          <span>${esc(nextVisit.date)} ${esc(nextVisit.time)} · ${esc(nextVisit.type)}</span>
+        </div>
+      ` : ''}
+      <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-slate-100">
+        <span>${esc(l.owner || 'Sin asignar')}</span>
+        <span>${esc(l.origin)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function onDragStart(e, id) {
+  draggedLeadId = id;
+  e.currentTarget.classList.add('dragging');
+}
+function onDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.kanban-dropzone').forEach(z => z.classList.remove('drag-over'));
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function onDrop(e, targetStageId) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!draggedLeadId) return;
+  const lead = state.leads.find(l => l.id === draggedLeadId);
+  if (!lead || lead.pipelineStage === targetStageId) return;
+
+  const stObj = STAGES.find(s => s.id === targetStageId);
+  const oldLabel = STAGES.find(s => s.id === lead.pipelineStage)?.label || lead.pipelineStage;
+  lead.pipelineStage = targetStageId;
+  if (stObj) lead.probability = stObj.prob;
+  lead.updatedAt = new Date().toISOString();
+  lead.chatter = lead.chatter || [];
+  lead.chatter.unshift({
+    ts: new Date().toISOString(),
+    type: 'Embudo',
+    text: `Movido de "${oldLabel}" a "${stObj?.label || targetStageId}".`
+  });
+  saveState();
+  renderCurrentView();
+}
+
+// ============================================================================
+// VISTA 2: CALENDARIO DE VISITAS Y ENTREVISTAS
+// ============================================================================
+function renderCalendar() {
+  const monthNames = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  document.getElementById('calMonthTitle').textContent = `${monthNames[calMonth]} ${calYear}`;
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const startDow = (firstDay.getDay() + 6) % 7; // Lunes = 0
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let html = '';
+  for (let i = 0; i < startDow; i++) {
+    html += `<div class="cal-day bg-slate-50/70 rounded-lg border border-slate-100 p-1"></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayVisits = state.visits.filter(v => v.date === dateStr).sort((a, b) => a.time.localeCompare(b.time));
+    const isToday = dateStr === todayStr;
+
+    html += `
+      <div class="cal-day rounded-lg border ${isToday ? 'border-[#F2675E] bg-purple-50/30' : 'border-slate-200 bg-white'} p-1.5 flex flex-col gap-1 hover:bg-slate-50/70 transition"
+           ondblclick="openVisitModal(null, '${dateStr}')">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-bold ${isToday ? 'bg-[#F2675E] text-white px-1.5 rounded' : 'text-slate-700'}">${d}</span>
+          <button onclick="openVisitModal(null, '${dateStr}')" class="text-[10px] text-slate-400 hover:text-[#F2675E]" title="Nueva cita este día">+</button>
+        </div>
+        <div class="space-y-1 overflow-y-auto max-h-[82px]">
+          ${dayVisits.map(v => {
+            const fam = state.leads.find(l => l.id === v.leadId);
+            return `
+              <div onclick="openVisitModal('${v.id}')" class="cursor-pointer text-[10px] px-1.5 py-0.5 rounded border truncate ${visitBadgeClass(v.type)}" title="${esc(v.time)} · ${esc(fam?.familyName || '')} (${esc(v.type)})">
+                <strong>${esc(v.time)}</strong> ${esc(fam?.familyName?.replace('Familia ', '') || 'Familia')}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  document.getElementById('calendarGrid').innerHTML = html;
+
+  // Agenda lateral
+  const upcoming = state.visits
+    .filter(v => v.date >= todayStr)
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
+  document.getElementById('upcomingCount').textContent = `${upcoming.length} citas`;
+  document.getElementById('upcomingList').innerHTML = upcoming.length
+    ? upcoming.map(v => {
+        const fam = state.leads.find(l => l.id === v.leadId);
+        return `
+          <div class="p-2.5 rounded-lg border border-slate-200 hover:border-[#333333] transition bg-slate-50/40">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="text-[10px] px-2 py-0.5 rounded border font-semibold ${visitBadgeClass(v.type)}">${esc(v.type)}</span>
+              <span class="text-[11px] font-bold text-slate-700">${esc(v.date)} · ${esc(v.time)}</span>
+            </div>
+            <div class="font-bold text-xs text-slate-800 cursor-pointer hover:text-[#F2675E]" onclick="openLeadModal('${v.leadId}')">
+              ${esc(fam?.familyName || 'Familia eliminada')}
+            </div>
+            <div class="text-[11px] text-slate-500">${esc(fam?.studentName || '')} · ${esc(fam?.targetGrade || '')}</div>
+            <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+              <span><i class="fa-solid fa-user-tie mr-1"></i>${esc(v.staff || 'Sin asignar')}</span>
+              <div class="flex gap-2.5 items-center">
+                <a href="${esc(getGoogleCalendarUrl(v))}" target="_blank" class="text-[#F2675E] hover:underline font-semibold" title="Abrir en Google Calendar">+ Google Cal</a>
+                <button onclick="downloadVisitICS('${v.id}')" class="text-[#333333] hover:underline font-medium" title="Descargar para Apple Calendar / Outlook">.ics</button>
+                <button onclick="openVisitModal('${v.id}')" class="text-slate-600 hover:underline font-medium">Editar</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')
+    : '<p class="text-xs text-slate-400 text-center py-6">No hay visitas programadas a partir de hoy.</p>';
+}
+
+function visitBadgeClass(type) {
+  if (type.includes('Dirección')) return 'bg-purple-50 text-purple-700 border-purple-200';
+  if (type.includes('Orientación')) return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (type.includes('Llamada')) return 'bg-amber-50 text-amber-700 border-amber-200';
+  return 'bg-sky-50 text-sky-700 border-sky-200';
+}
+
+function changeMonth(delta) {
+  calMonth += delta;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  renderCalendar();
+}
+function goToday() {
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  renderCalendar();
+}
+
+// ============================================================================
+// VISTA 3: DIRECTORIO DE FAMILIAS (TABLA)
+// ============================================================================
+function renderFamiliesTable() {
+  const leads = getFilteredLeads();
+  const tbody = document.getElementById('familiesTableBody');
+  tbody.innerHTML = leads.map(l => {
+    const st = STAGES.find(s => s.id === l.pipelineStage) || STAGES[0];
+    const nextVisit = state.visits
+      .filter(v => v.leadId === l.id && v.date >= new Date().toISOString().slice(0, 10))
+      .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))[0];
+    return `
+      <tr class="hover:bg-slate-50 transition">
+        <td class="py-2.5 px-4">
+          <div class="font-bold text-slate-800 cursor-pointer hover:text-[#F2675E]" onclick="openLeadModal('${l.id}')">${esc(l.familyName)}</div>
+          <div class="text-[11px] text-slate-500">${esc(l.parent1)}${l.parent2 ? ' / ' + esc(l.parent2) : ''}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <div class="font-semibold text-slate-700">${esc(l.studentName)}</div>
+          <div class="text-[11px] text-slate-500">${esc(l.targetGrade)} · ${esc(l.originSchool || '—')}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <div>${esc(l.phone)}</div>
+          <div class="text-[11px] text-slate-500">${esc(l.email)}</div>
+        </td>
+        <td class="py-2.5 px-3">
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${st.badge}">${esc(st.label)}</span>
+        </td>
+        <td class="py-2.5 px-3 text-[11px]">
+          ${nextVisit ? `<span class="text-[#333333] font-medium">${esc(nextVisit.date)} ${esc(nextVisit.time)}</span>` : '<span class="text-slate-400">Sin cita</span>'}
+        </td>
+        <td class="py-2.5 px-3 max-w-[200px] truncate text-[11px] text-slate-600" title="${esc(l.interests)}">${esc(l.interests || '—')}</td>
+        <td class="py-2.5 px-3 text-[11px]">${esc(l.owner || '—')}</td>
+        <td class="py-2.5 px-4 text-right whitespace-nowrap">
+          <button onclick="openLeadModal('${l.id}')" class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium">Ficha</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ============================================================================
+// VISTA 4: DASHBOARD & KPIS
+// ============================================================================
+function renderDashboard() {
+  const leads = getFilteredLeads();
+  const total = leads.length || 1;
+  const enrolled = leads.filter(l => l.pipelineStage === 'matriculado').length;
+  const preadmitted = leads.filter(l => l.pipelineStage === 'preadmitido').length;
+  const interviewed = leads.filter(l => ['entrevista', 'preadmitido', 'matriculado'].includes(l.pipelineStage)).length;
+  const convRate = Math.round((enrolled / total) * 100);
+  const weightedForecast = (leads.reduce((s, l) => s + (Number(l.probability || 0) / 100), 0)).toFixed(1);
+
+  document.getElementById('kpiCards').innerHTML = [
+    { label: 'Total Familias', val: leads.length, sub: 'En embudo', color: 'text-slate-800' },
+    { label: 'Entrevistadas', val: interviewed, sub: `${Math.round((interviewed / total) * 100)}% del total`, color: 'text-purple-700' },
+    { label: 'Pre-admitidas', val: preadmitted, sub: 'En reserva de plaza', color: 'text-amber-600' },
+    { label: 'Matriculadas', val: enrolled, sub: 'Altas cerradas', color: 'text-emerald-600' },
+    { label: 'Conversión Real', val: `${convRate}%`, sub: 'Lead → Matrícula', color: 'text-[#F2675E]' },
+    { label: 'Previsión Ponderada', val: weightedForecast, sub: 'Matrículas esperadas', color: 'text-[#333333]' }
+  ].map(k => `
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-3.5">
+      <div class="text-[11px] text-slate-500 font-medium">${k.label}</div>
+      <div class="text-2xl font-bold ${k.color} mt-0.5">${k.val}</div>
+      <div class="text-[10px] text-slate-400 mt-0.5">${k.sub}</div>
+    </div>
+  `).join('');
+
+  // Embudo
+  document.getElementById('funnelChart').innerHTML = STAGES.map(st => {
+    const count = leads.filter(l => l.pipelineStage === st.id).length;
+    const pct = Math.round((count / total) * 100);
+    return `
+      <div>
+        <div class="flex justify-between text-xs mb-1">
+          <span class="font-medium text-slate-700">${esc(st.label)}</span>
+          <span class="font-bold text-slate-800">${count} (${pct}%)</span>
+        </div>
+        <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+          <div class="h-full bg-[#F2675E] rounded-full" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Desglose etapa y origen
+  const byEdu = ['Infantil', 'Primaria', 'ESO', 'Bachillerato'].map(e => ({
+    name: e, count: leads.filter(l => l.stageEdu === e).length
+  }));
+  const origins = [...new Set(leads.map(l => l.origin))].map(o => ({
+    name: o, count: leads.filter(l => l.origin === o).length
+  }));
+
+  document.getElementById('breakdownChart').innerHTML = `
+    <div>
+      <h4 class="text-xs font-bold text-slate-600 mb-2">Por Etapa Educativa</h4>
+      <div class="space-y-1.5 text-xs">
+        ${byEdu.map(x => `<div class="flex justify-between p-1.5 rounded bg-slate-50"><span>${esc(x.name)}</span><strong>${x.count}</strong></div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <h4 class="text-xs font-bold text-slate-600 mb-2">Por Origen del Lead</h4>
+      <div class="space-y-1.5 text-xs">
+        ${origins.map(x => `<div class="flex justify-between p-1.5 rounded bg-slate-50"><span>${esc(x.name)}</span><strong>${x.count}</strong></div>`).join('')}
+      </div>
+    </div>
+  `;
+
+  // Alertas SLA
+  const alerts = leads.filter(l => daysSince(l.updatedAt) >= 2 && l.pipelineStage !== 'matriculado' && l.pipelineStage !== 'perdido');
+  document.getElementById('slaAlerts').innerHTML = alerts.length
+    ? alerts.map(l => `
+        <div class="flex items-center justify-between p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800">
+          <div><strong>${esc(l.familyName)}</strong> (${esc(l.studentName)} · ${esc(l.targetGrade)}) lleva <strong>${daysSince(l.updatedAt)} días</strong> sin actividad.</div>
+          <button onclick="openLeadModal('${l.id}')" class="px-2.5 py-1 rounded bg-white border border-rose-300 text-rose-700 font-semibold hover:bg-rose-100">Revisar</button>
+        </div>
+      `).join('')
+    : '<p class="text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2.5">Todo al día: no hay familias activas con más de 48h sin seguimiento.</p>';
+}
+
+// ============================================================================
+// VISTA 5: RECURSOS / PLAZAS ESCOLARES (REA RESOURCES)
+// ============================================================================
+function renderResources() {
+  document.getElementById('resourcesGrid').innerHTML = state.resources.map((r, idx) => {
+    const matching = state.leads.filter(l => l.targetGrade === r.grade);
+    const enrolled = matching.filter(l => l.pipelineStage === 'matriculado').length;
+    const pre = matching.filter(l => l.pipelineStage === 'preadmitido').length;
+    const pipeline = matching.filter(l => !['matriculado', 'perdido', 'preadmitido'].includes(l.pipelineStage)).length;
+    const free = Math.max(0, r.capacity - enrolled - pre);
+    const occPct = Math.min(100, Math.round(((enrolled + pre) / (r.capacity || 1)) * 100));
+
+    return `
+      <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/40">
+        <div class="flex items-center justify-between mb-2">
+          <div>
+            <div class="font-bold text-sm text-slate-800">${esc(r.grade)}</div>
+            <div class="text-[11px] text-slate-500">${esc(r.stageEdu)}</div>
+          </div>
+          <div class="text-right">
+            <span class="text-xs text-slate-500">Cupo:</span>
+            <input type="number" min="1" value="${r.capacity}" onchange="updateCapacity(${idx}, this.value)"
+              class="w-14 text-xs font-bold border border-slate-300 rounded px-1.5 py-0.5 text-center bg-white" />
+          </div>
+        </div>
+        <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden mb-2.5">
+          <div class="h-full bg-[#333333]" style="width:${occPct}%"></div>
+        </div>
+        <div class="grid grid-cols-4 gap-1 text-center text-[11px]">
+          <div class="bg-white rounded p-1.5 border border-slate-100"><div class="font-bold text-emerald-600">${enrolled}</div><div class="text-slate-400">Matric.</div></div>
+          <div class="bg-white rounded p-1.5 border border-slate-100"><div class="font-bold text-amber-600">${pre}</div><div class="text-slate-400">Reserva</div></div>
+          <div class="bg-white rounded p-1.5 border border-slate-100"><div class="font-bold text-[#F2675E]">${pipeline}</div><div class="text-slate-400">Embudo</div></div>
+          <div class="bg-white rounded p-1.5 border border-slate-100"><div class="font-bold text-slate-800">${free}</div><div class="text-slate-400">Libres</div></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function updateCapacity(idx, val) {
+  state.resources[idx].capacity = Math.max(1, Number(val) || 1);
+  saveState();
+  renderResources();
+}
+
+// ============================================================================
+// VISTA 6: ADMINISTRACIÓN (EQUIPO, ROLES, ENTREVISTADORES Y CONFIGURACIÓN)
+// ============================================================================
+function renderAdmin() {
+  document.getElementById('adm_schoolName').value = state.settings?.schoolName || 'CRM Admisiones & Familias';
+  document.getElementById('adm_academicYear').value = state.settings?.academicYear || '2026–2027';
+  document.getElementById('adm_slaDays').value = state.settings?.slaDays ?? 2;
+
+  const roles = ['Director/a', 'Resp. Admisiones', 'Orientación', 'Jefatura de Estudios', 'Secretaría'];
+  document.getElementById('adminTeamTable').innerHTML = (state.team || []).map((m, idx) => `
+    <tr class="hover:bg-slate-50">
+      <td class="py-2 px-3 font-semibold text-slate-800">${esc(m.name)}</td>
+      <td class="py-2 px-3">
+        <select onchange="changeTeamRole(${idx}, this.value)" class="border border-slate-200 rounded px-2 py-1 bg-white text-xs">
+          ${roles.map(r => `<option value="${esc(r)}" ${m.role === r ? 'selected' : ''}>${esc(r)}</option>`).join('')}
+        </select>
+      </td>
+      <td class="py-2 px-3 text-slate-600">${esc(m.stages || 'Todas')}</td>
+      <td class="py-2 px-3 text-center">
+        <input type="checkbox" ${m.interviewer ? 'checked' : ''} onchange="toggleTeamInterviewer(${idx})" class="accent-[#333333] cursor-pointer" />
+      </td>
+      <td class="py-2 px-3 text-right">
+        <button onclick="deleteTeamMember(${idx})" class="text-rose-600 hover:underline text-[11px]">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function saveAdminSettings() {
+  state.settings = {
+    schoolName: document.getElementById('adm_schoolName').value.trim() || 'CRM Admisiones & Familias',
+    academicYear: document.getElementById('adm_academicYear').value.trim() || '2026–2027',
+    slaDays: Math.max(1, Number(document.getElementById('adm_slaDays').value || 2))
+  };
+  saveState();
+  applySchoolBranding();
+  alert('Configuración del centro guardada.');
+}
+
+function addTeamMember() {
+  const name = document.getElementById('adm_mName').value.trim();
+  if (!name) { alert('Indica el nombre de la persona.'); return; }
+  state.team = state.team || [];
+  state.team.push({
+    id: `tm_${Date.now()}`,
+    name,
+    role: document.getElementById('adm_mRole').value,
+    stages: document.getElementById('adm_mStages').value.trim() || 'Todas',
+    interviewer: document.getElementById('adm_mInterviewer').checked
+  });
+  document.getElementById('adm_mName').value = '';
+  document.getElementById('adm_mStages').value = '';
+  saveState();
+  populateOwnerFilter();
+  renderAdmin();
+}
+
+function changeTeamRole(idx, role) {
+  if (!state.team[idx]) return;
+  state.team[idx].role = role;
+  saveState();
+}
+
+function toggleTeamInterviewer(idx) {
+  if (!state.team[idx]) return;
+  state.team[idx].interviewer = !state.team[idx].interviewer;
+  saveState();
+}
+
+function deleteTeamMember(idx) {
+  if (!confirm('¿Eliminar este miembro del equipo?')) return;
+  state.team.splice(idx, 1);
+  saveState();
+  populateOwnerFilter();
+  renderAdmin();
+}
+
+function addResourceGrade() {
+  const grade = document.getElementById('adm_newGrade').value.trim();
+  const stageEdu = document.getElementById('adm_newEdu').value;
+  const capacity = Math.max(1, Number(document.getElementById('adm_newCap').value || 25));
+  if (!grade) { alert('Indica el nombre del curso (ej. 2º ESO).'); return; }
+  state.resources.push({ grade, stageEdu, capacity });
+  document.getElementById('adm_newGrade').value = '';
+  saveState();
+  alert(`Curso "${grade}" añadido a Plazas (REA).`);
+}
+
+function reassignLegacyOwners() {
+  const teamNames = new Set((state.team || []).map(m => m.name));
+  const interviewerNames = new Set((state.team || []).filter(m => m.interviewer).map(m => m.name));
+  const defaultOwner = state.team?.find(m => m.role === 'Resp. Admisiones')?.name || state.team?.[0]?.name || '';
+  const defaultInterviewer = state.team?.find(m => m.interviewer)?.name || '';
+  if (!defaultOwner) { alert('Añade al menos un miembro al equipo primero.'); return; }
+
+  let updated = 0;
+  state.leads.forEach(l => {
+    if (!teamNames.has(l.owner)) { l.owner = defaultOwner; updated++; }
+    if (l.interviewer && !interviewerNames.has(l.interviewer)) { l.interviewer = defaultInterviewer; }
+  });
+  state.visits.forEach(v => {
+    if (!teamNames.has(v.staff)) { v.staff = defaultOwner; updated++; }
+  });
+  saveState();
+  populateOwnerFilter();
+  renderCurrentView();
+  alert(`Actualizados ${updated} registros al equipo vigente.`);
+}
+
+function clearDemoLeadsAndVisits() {
+  if (!confirm('¿Vaciar todas las familias y citas actuales para empezar en blanco? Se mantendrán tu equipo, cursos y configuración del centro.')) return;
+  state.leads = [];
+  state.visits = [];
+  saveState();
+  populateOwnerFilter();
+  renderCurrentView();
+}
+
+// ============================================================================
+// MODAL FICHA DE FAMILIA (ODOO FORM + CHATTER)
+// ============================================================================
+function openLeadModal(leadId = null) {
+  const modal = document.getElementById('leadModal');
+  const stageSel = document.getElementById('f_pipelineStage');
+  stageSel.innerHTML = STAGES.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('');
+
+  const lead = leadId ? state.leads.find(l => l.id === leadId) : null;
+  const defaultOwner = lead?.owner || (state.team?.[0]?.name || 'Laura (Admisiones)');
+  populateTeamSelects(defaultOwner, lead?.interviewer || '', '');
+  document.getElementById('f_id').value = lead ? lead.id : '';
+  document.getElementById('leadModalTitle').textContent = lead ? lead.familyName : 'Nueva Familia / Candidato';
+  document.getElementById('leadModalSub').textContent = lead ? `${lead.studentName} · ${lead.targetGrade}` : 'Alta en CRM de Admisiones';
+  document.getElementById('btnDeleteLead').classList.toggle('hidden', !lead);
+
+  document.getElementById('f_familyName').value = lead?.familyName || '';
+  document.getElementById('f_parent1').value = lead?.parent1 || '';
+  document.getElementById('f_parent2').value = lead?.parent2 || '';
+  document.getElementById('f_phone').value = lead?.phone || '';
+  document.getElementById('f_email').value = lead?.email || '';
+  document.getElementById('f_studentName').value = lead?.studentName || '';
+  document.getElementById('f_studentAge').value = lead?.studentAge || '';
+  document.getElementById('f_stageEdu').value = lead?.stageEdu || 'Infantil';
+  document.getElementById('f_targetGrade').value = lead?.targetGrade || '';
+  document.getElementById('f_originSchool').value = lead?.originSchool || '';
+  stageSel.value = lead?.pipelineStage || 'nuevo';
+  document.getElementById('f_probability').value = lead?.probability ?? 10;
+  document.getElementById('f_priority').value = lead?.priority ?? 2;
+  document.getElementById('f_origin').value = lead?.origin || 'Web / Formulario';
+  document.getElementById('f_owner').value = lead?.owner || 'Laura (Admisiones)';
+  document.getElementById('f_services').value = lead?.services || '';
+  document.getElementById('f_interests').value = lead?.interests || '';
+  document.getElementById('f_lostReason').value = lead?.lostReason || '';
+  document.getElementById('lostReasonWrap').classList.toggle('hidden', stageSel.value !== 'perdido');
+
+  document.getElementById('f_chkTour').checked = !!lead?.chkTour;
+  document.getElementById('f_chkRgpd').checked = !!lead?.chkRgpd;
+  document.getElementById('f_chkDocs').checked = !!lead?.chkDocs;
+  document.getElementById('f_chkOrient').checked = !!lead?.chkOrient;
+  document.getElementById('f_scoreFit').value = lead?.scoreFit ?? 4;
+  document.getElementById('f_interviewer').value = lead?.interviewer || '';
+  document.getElementById('f_interviewDate').value = lead?.interviewDate || '';
+  document.getElementById('f_interviewNotes').value = lead?.interviewNotes || '';
+
+  stageSel.onchange = () => {
+    const st = STAGES.find(s => s.id === stageSel.value);
+    if (st) document.getElementById('f_probability').value = st.prob;
+    document.getElementById('lostReasonWrap').classList.toggle('hidden', stageSel.value !== 'perdido');
+    renderModalStageBar(stageSel.value);
+  };
+
+  renderModalStageBar(stageSel.value);
+  renderModalSidePanel(lead);
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function renderModalStageBar(activeId) {
+  document.getElementById('modalStageBar').innerHTML = STAGES.map(s => {
+    const active = s.id === activeId;
+    return `<button type="button" onclick="setModalStage('${s.id}')" class="px-2.5 py-1 rounded-full whitespace-nowrap font-medium transition ${active ? 'bg-[#F2675E] text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}">${esc(s.label)}</button>`;
+  }).join('');
+}
+
+function setModalStage(stageId) {
+  document.getElementById('f_pipelineStage').value = stageId;
+  const st = STAGES.find(s => s.id === stageId);
+  if (st) document.getElementById('f_probability').value = st.prob;
+  document.getElementById('lostReasonWrap').classList.toggle('hidden', stageId !== 'perdido');
+  renderModalStageBar(stageId);
+}
+
+function renderModalSidePanel(lead) {
+  const cleanPhone = (lead?.phone || '').replace(/[^\d+]/g, '');
+  document.getElementById('quickWa').href = cleanPhone ? `https://wa.me/${cleanPhone.replace('+','')}` : '#';
+  document.getElementById('quickMail').href = lead?.email ? `mailto:${lead.email}` : '#';
+
+  const visits = lead ? state.visits.filter(v => v.leadId === lead.id).sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)) : [];
+  document.getElementById('modalLeadVisits').innerHTML = visits.length
+    ? visits.map(v => `
+        <div class="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+          <div><strong>${esc(v.date)} ${esc(v.time)}</strong> · ${esc(v.type)}</div>
+          <button type="button" onclick="openVisitModal('${v.id}')" class="text-[#F2675E] hover:underline">Editar</button>
+        </div>
+      `).join('')
+    : '<p class="text-slate-400">Sin citas registradas aún.</p>';
+
+  const chatter = lead?.chatter || [];
+  document.getElementById('chatterTimeline').innerHTML = chatter.length
+    ? chatter.map(c => `
+        <div class="p-2 rounded bg-slate-50 border border-slate-100">
+          <div class="flex justify-between text-[10px] text-slate-400 mb-0.5">
+            <span class="font-bold text-[#F2675E]">${esc(c.type)}</span>
+            <span>${new Date(c.ts).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })}</span>
+          </div>
+          <div class="text-slate-700">${esc(c.text)}</div>
+        </div>
+      `).join('')
+    : '<p class="text-slate-400">Sin actividad registrada.</p>';
+}
+
+function addChatterNote() {
+  const id = document.getElementById('f_id').value;
+  const text = document.getElementById('chatterInput').value.trim();
+  const type = document.getElementById('chatterType').value;
+  if (!text) return;
+  if (!id) {
+    alert('Guarda primero la ficha de la familia antes de añadir notas al historial.');
+    return;
+  }
+  const lead = state.leads.find(l => l.id === id);
+  if (!lead) return;
+  lead.chatter = lead.chatter || [];
+  lead.chatter.unshift({ ts: new Date().toISOString(), type, text });
+  lead.updatedAt = new Date().toISOString();
+  document.getElementById('chatterInput').value = '';
+  saveState();
+  renderModalSidePanel(lead);
+  renderCurrentView();
+}
+
+function saveLeadForm() {
+  const familyName = document.getElementById('f_familyName').value.trim();
+  const studentName = document.getElementById('f_studentName').value.trim();
+  if (!familyName || !studentName) {
+    alert('Por favor, indica al menos el Nombre de la Familia y el Nombre del Alumno/a.');
+    return;
+  }
+
+  const id = document.getElementById('f_id').value || `fam_${Date.now()}`;
+  const existing = state.leads.find(l => l.id === id);
+  const payload = {
+    id,
+    familyName,
+    parent1: document.getElementById('f_parent1').value.trim(),
+    parent2: document.getElementById('f_parent2').value.trim(),
+    phone: document.getElementById('f_phone').value.trim(),
+    email: document.getElementById('f_email').value.trim(),
+    studentName,
+    studentAge: document.getElementById('f_studentAge').value.trim(),
+    stageEdu: document.getElementById('f_stageEdu').value,
+    targetGrade: document.getElementById('f_targetGrade').value.trim() || document.getElementById('f_stageEdu').value,
+    originSchool: document.getElementById('f_originSchool').value.trim(),
+    pipelineStage: document.getElementById('f_pipelineStage').value,
+    probability: Number(document.getElementById('f_probability').value || 0),
+    priority: Number(document.getElementById('f_priority').value || 2),
+    origin: document.getElementById('f_origin').value,
+    owner: document.getElementById('f_owner').value.trim(),
+    services: document.getElementById('f_services').value.trim(),
+    interests: document.getElementById('f_interests').value.trim(),
+    lostReason: document.getElementById('f_lostReason').value.trim(),
+    chkTour: document.getElementById('f_chkTour').checked,
+    chkRgpd: document.getElementById('f_chkRgpd').checked,
+    chkDocs: document.getElementById('f_chkDocs').checked,
+    chkOrient: document.getElementById('f_chkOrient').checked,
+    scoreFit: Number(document.getElementById('f_scoreFit').value || 4),
+    interviewer: document.getElementById('f_interviewer').value.trim(),
+    interviewDate: document.getElementById('f_interviewDate').value,
+    interviewNotes: document.getElementById('f_interviewNotes').value.trim(),
+    updatedAt: new Date().toISOString(),
+    chatter: existing?.chatter || [{ ts: new Date().toISOString(), type: 'Alta', text: 'Expediente creado en el CRM de Admisiones.' }]
+  };
+
+  if (existing) {
+    Object.assign(existing, payload);
+  } else {
+    state.leads.unshift(payload);
+  }
+
+  saveState();
+  populateOwnerFilter();
+  closeLeadModal();
+  renderCurrentView();
+}
+
+function deleteCurrentLead() {
+  const id = document.getElementById('f_id').value;
+  if (!id || !confirm('¿Eliminar esta familia y todas sus visitas asociadas?')) return;
+  state.leads = state.leads.filter(l => l.id !== id);
+  state.visits = state.visits.filter(v => v.leadId !== id);
+  saveState();
+  populateOwnerFilter();
+  closeLeadModal();
+  renderCurrentView();
+}
+
+function closeLeadModal() {
+  const modal = document.getElementById('leadModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// ============================================================================
+// MODAL VISITAS / ENTREVISTAS (CALENDAR)
+// ============================================================================
+function openVisitModal(visitId = null, presetDate = null, presetLeadId = null) {
+  const sel = document.getElementById('v_leadId');
+  sel.innerHTML = state.leads.map(l => `<option value="${l.id}">${esc(l.familyName)} (${esc(l.studentName)})</option>`).join('');
+
+  const v = visitId ? state.visits.find(x => x.id === visitId) : null;
+  const defaultStaff = v?.staff || (state.team?.[0]?.name || 'Laura (Admisiones)');
+  populateTeamSelects('', '', defaultStaff);
+  document.getElementById('v_id').value = v ? v.id : '';
+  document.getElementById('btnDeleteVisit').classList.toggle('hidden', !v);
+  sel.value = v?.leadId || presetLeadId || (state.leads[0]?.id || '');
+  document.getElementById('v_type').value = v?.type || 'Visita Centro';
+  document.getElementById('v_staff').value = defaultStaff;
+  document.getElementById('v_date').value = v?.date || presetDate || new Date().toISOString().slice(0, 10);
+  document.getElementById('v_time').value = v?.time || '10:00';
+  document.getElementById('v_duration').value = v?.duration || 45;
+  document.getElementById('v_location').value = v?.location || 'Recepción Colegio / Sala Admisiones';
+  document.getElementById('v_notes').value = v?.notes || '';
+
+  const modal = document.getElementById('visitModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function openVisitForCurrentLead() {
+  const id = document.getElementById('f_id').value;
+  if (!id) { alert('Guarda primero la ficha de la familia.'); return; }
+  openVisitModal(null, null, id);
+}
+
+function saveVisitForm() {
+  const leadId = document.getElementById('v_leadId').value;
+  const date = document.getElementById('v_date').value;
+  const time = document.getElementById('v_time').value;
+  if (!leadId || !date || !time) { alert('Selecciona familia, fecha y hora.'); return; }
+
+  const id = document.getElementById('v_id').value || `vis_${Date.now()}`;
+  const existing = state.visits.find(x => x.id === id);
+  const payload = {
+    id,
+    leadId,
+    type: document.getElementById('v_type').value,
+    staff: document.getElementById('v_staff').value.trim(),
+    date,
+    time,
+    duration: Number(document.getElementById('v_duration').value || 45),
+    location: document.getElementById('v_location').value.trim(),
+    notes: document.getElementById('v_notes').value.trim()
+  };
+
+  if (existing) Object.assign(existing, payload);
+  else state.visits.push(payload);
+
+  const lead = state.leads.find(l => l.id === leadId);
+  if (lead) {
+    lead.updatedAt = new Date().toISOString();
+    lead.chatter = lead.chatter || [];
+    lead.chatter.unshift({ ts: new Date().toISOString(), type: 'Calendario', text: `Cita programada: ${payload.type} el ${payload.date} a las ${payload.time}.` });
+  }
+
+  saveState();
+  closeVisitModal();
+  if (lead && !document.getElementById('leadModal').classList.contains('hidden')) {
+    renderModalSidePanel(lead);
+  }
+  renderCurrentView();
+}
+
+function deleteCurrentVisit() {
+  const id = document.getElementById('v_id').value;
+  if (!id) return;
+  state.visits = state.visits.filter(v => v.id !== id);
+  saveState();
+  closeVisitModal();
+  renderCurrentView();
+}
+
+function closeVisitModal() {
+  const modal = document.getElementById('visitModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// ============================================================================
+// EXPORTACIONES: .ICS (GOOGLE/OUTLOOK/ODOO), CSV Y JSON
+// ============================================================================
+function buildICS(visits) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//CRM Admisiones REA//ES'];
+  visits.forEach(v => {
+    const fam = state.leads.find(l => l.id === v.leadId);
+    const start = v.date.replace(/-/g, '') + 'T' + v.time.replace(':', '') + '00';
+    const dtStart = new Date(`${v.date}T${v.time}:00`);
+    const dtEnd = new Date(dtStart.getTime() + (v.duration || 45) * 60000);
+    const end = dtEnd.toISOString().replace(/[-:]/g, '').slice(0, 15);
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${v.id}@crm-admisiones-rea`,
+      `DTSTART:${start}`,
+      `DTEND:${end}`,
+      `SUMMARY:${v.type} - ${fam?.familyName || 'Familia'} (${fam?.studentName || ''})`,
+      `LOCATION:${v.location || 'Colegio'}`,
+      `DESCRIPTION:Responsable: ${v.staff || ''}\\nNotas: ${(v.notes || '').replace(/\n/g, ' ')}`,
+      'END:VEVENT'
+    );
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function downloadFile(filename, content, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadVisitICS(visitId) {
+  const v = state.visits.find(x => x.id === visitId);
+  if (v) downloadFile(`cita_${v.date}_${v.id}.ics`, buildICS([v]), 'text/calendar;charset=utf-8');
+}
+
+function getGoogleCalendarUrl(v) {
+  const fam = state.leads.find(l => l.id === v.leadId);
+  const start = v.date.replace(/-/g, '') + 'T' + v.time.replace(':', '') + '00';
+  const dtStart = new Date(`${v.date}T${v.time}:00`);
+  const dtEnd = new Date(dtStart.getTime() + (v.duration || 45) * 60000);
+  const pad = n => String(n).padStart(2, '0');
+  const end = `${dtEnd.getFullYear()}${pad(dtEnd.getMonth() + 1)}${pad(dtEnd.getDate())}T${pad(dtEnd.getHours())}${pad(dtEnd.getMinutes())}00`;
+  const title = `${v.type} - ${fam?.familyName || 'Familia'} (${fam?.studentName || ''})`;
+  const details = [
+    `Alumno: ${fam?.studentName || ''} (${fam?.targetGrade || ''})`,
+    `Teléfono: ${fam?.phone || ''} | Email: ${fam?.email || ''}`,
+    `Responsable: ${v.staff || ''}`,
+    v.notes ? `Notas: ${v.notes}` : ''
+  ].filter(Boolean).join('\n');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: title,
+    dates: `${start}/${end}`,
+    location: v.location || 'Colegio',
+    details
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function exportAllICS() {
+  downloadFile('agenda_admisiones.ics', buildICS(state.visits), 'text/calendar;charset=utf-8');
+}
+
+function exportCSV() {
+  const headers = ['Familia','Progenitor 1','Progenitor 2','Telefono','Email','Alumno','Edad','Etapa Educativa','Curso Objetivo','Colegio Origen','Etapa Embudo','Probabilidad','Origen','Responsable','Intereses'];
+  const rows = state.leads.map(l => [
+    l.familyName, l.parent1, l.parent2, l.phone, l.email, l.studentName, l.studentAge,
+    l.stageEdu, l.targetGrade, l.originSchool, l.pipelineStage, l.probability, l.origin, l.owner, l.interests
+  ].map(val => `"${String(val ?? '').replace(/"/g, '""')}"`).join(','));
+  downloadFile('crm_admisiones_familias.csv', '\uFEFF' + [headers.join(','), ...rows].join('\n'), 'text/csv;charset=utf-8');
+}
+
+function exportJSON() {
+  downloadFile(`backup_crm_admisiones_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(state, null, 2), 'application/json');
+}
+
+function importJSON(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (!Array.isArray(parsed.leads) || !Array.isArray(parsed.visits)) throw new Error('Formato inválido');
+      if (!parsed.resources) parsed.resources = DEFAULT_RESOURCES;
+      saveState(parsed);
+      populateOwnerFilter();
+      renderCurrentView();
+      alert('Backup importado correctamente.');
+    } catch (err) {
+      alert('Error al importar JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Inicialización
+populateOwnerFilter();
+renderCurrentView();
+</script>
+</body>
+</html>

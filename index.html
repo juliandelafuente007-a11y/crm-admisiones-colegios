@@ -77,6 +77,9 @@
       </div>
 
       <div class="flex items-center gap-2">
+        <button id="syncBadge" onclick="syncFromCloud(false)" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 border border-slate-200 text-[11px] font-medium text-slate-600 hover:bg-slate-50 transition" title="Estado de sincronización">
+          <i class="fa-solid fa-hard-drive text-slate-400"></i> <span>Local</span>
+        </button>
         <button onclick="openLeadModal()" class="px-4 py-2 bg-[#F2675E] text-white hover:bg-[#DC544B] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition">
           <i class="fa-solid fa-plus"></i> Nueva Familia
         </button>
@@ -301,6 +304,22 @@
               </select>
               <button onclick="addResourceGrade()" class="btn-teal px-3 py-1.5 rounded-md text-xs font-semibold">Añadir Curso</button>
             </div>
+          </div>
+
+          <div class="border-t border-slate-200 pt-3 space-y-2">
+            <h3 class="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+              <i class="fa-solid fa-cloud text-emerald-600"></i> Base de Datos Real (Google Sheets)
+            </h3>
+            <p class="text-[11px] text-slate-500 leading-relaxed">
+              Conecta una Hoja de Cálculo de Google Drive usando el script <code class="bg-slate-100 px-1 rounded">Code.gs</code> para que todo tu equipo comparta los datos reales en tiempo real.
+            </p>
+            <input id="adm_gasUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full text-xs border border-slate-300 rounded-md px-2.5 py-1.5" />
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="saveGasUrl()" class="btn-odoo px-3 py-1.5 rounded-md text-[11px] font-semibold">Conectar y Subir</button>
+              <button onclick="syncFromCloud(false)" class="px-2.5 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50 text-[11px] font-medium">Traer de Sheets</button>
+              <button onclick="disconnectGas()" class="px-2.5 py-1.5 rounded-md text-[11px] text-rose-600 hover:bg-rose-50">Desconectar</button>
+            </div>
+            <div id="adm_gasStatus" class="text-[11px] text-slate-500"></div>
           </div>
         </div>
 
@@ -886,11 +905,28 @@ function getDemoState() {
   };
 }
 
+const GAS_URL_KEY = 'crm_admisiones_gas_url';
 let state = null;
 let currentView = 'kanban';
 let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 let draggedLeadId = null;
+
+function getGasUrl() {
+  try { return (localStorage.getItem(GAS_URL_KEY) || '').trim(); } catch { return ''; }
+}
+
+function updateSyncBadge(statusText = '') {
+  const badge = document.getElementById('syncBadge');
+  if (!badge) return;
+  const url = getGasUrl();
+  if (!url) {
+    badge.innerHTML = '<i class="fa-solid fa-hard-drive text-slate-400"></i> <span>Local</span>';
+    return;
+  }
+  const label = statusText || 'Google Sheets';
+  badge.innerHTML = `<i class="fa-solid fa-cloud text-emerald-600"></i> <span>${esc(label)}</span>`;
+}
 
 function loadState() {
   try {
@@ -907,17 +943,94 @@ function loadState() {
     }
   } catch (e) { console.warn('Error cargando localStorage:', e); }
   const demo = getDemoState();
-  saveState(demo);
+  saveState(demo, true);
   return demo;
 }
 
-function saveState(next = state) {
+function saveState(next = state, skipCloud = false) {
   state = next;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {
     console.warn('No se pudo guardar en localStorage:', e);
   }
+  if (!skipCloud && getGasUrl()) {
+    syncToCloud();
+  }
+}
+
+async function syncToCloud() {
+  const url = getGasUrl();
+  if (!url || typeof fetch !== 'function') return;
+  updateSyncBadge('Guardando...');
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'saveState', state })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error en Apps Script');
+    updateSyncBadge('Sincronizado');
+    const st = document.getElementById('adm_gasStatus');
+    if (st) st.textContent = `Última sincronización: ${new Date().toLocaleTimeString('es-ES')}`;
+  } catch (err) {
+    console.warn('Error sincronizando con Google Sheets:', err);
+    updateSyncBadge('Error Sync');
+  }
+}
+
+async function syncFromCloud(silent = false) {
+  const url = getGasUrl();
+  if (!url) {
+    if (!silent) alert('Introduce primero la URL del Web App de Google Apps Script en Administración.');
+    return;
+  }
+  if (typeof fetch !== 'function') return;
+  updateSyncBadge('Cargando...');
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error leyendo Google Sheets');
+    if (data.state && Array.isArray(data.state.leads) && Array.isArray(data.state.visits)) {
+      const demo = getDemoState();
+      if (!data.state.resources) data.state.resources = demo.resources;
+      if (!data.state.settings) data.state.settings = demo.settings;
+      if (!Array.isArray(data.state.team)) data.state.team = demo.team;
+      saveState(data.state, true);
+      populateOwnerFilter();
+      renderCurrentView();
+      updateSyncBadge('Google Sheets');
+      if (!silent) alert('Datos cargados desde Google Sheets.');
+    } else {
+      updateSyncBadge('Sheets vacío');
+      if (!silent) alert('La hoja de Google Sheets está vacía. Pulsa "Conectar y Subir" para inicializarla con tus datos actuales.');
+    }
+  } catch (err) {
+    console.warn('Error leyendo Google Sheets:', err);
+    updateSyncBadge('Error Sync');
+    if (!silent) alert('No se pudo conectar con Google Sheets: ' + err.message);
+  }
+}
+
+function saveGasUrl() {
+  const url = document.getElementById('adm_gasUrl').value.trim();
+  if (!url || !url.startsWith('https://script.google.com/')) {
+    alert('Pega una URL válida de Google Apps Script (debe empezar por https://script.google.com/).');
+    return;
+  }
+  localStorage.setItem(GAS_URL_KEY, url);
+  updateSyncBadge('Conectando...');
+  syncToCloud().then(() => alert('Conectado a Google Sheets y datos subidos.'));
+}
+
+function disconnectGas() {
+  localStorage.removeItem(GAS_URL_KEY);
+  const inp = document.getElementById('adm_gasUrl');
+  if (inp) inp.value = '';
+  const st = document.getElementById('adm_gasStatus');
+  if (st) st.textContent = 'Desconectado (modo local).';
+  updateSyncBadge();
 }
 
 state = loadState();
@@ -1410,6 +1523,8 @@ function renderAdmin() {
   document.getElementById('adm_schoolName').value = state.settings?.schoolName || 'CRM Admisiones & Familias';
   document.getElementById('adm_academicYear').value = state.settings?.academicYear || '2026–2027';
   document.getElementById('adm_slaDays').value = state.settings?.slaDays ?? 2;
+  const gasInp = document.getElementById('adm_gasUrl');
+  if (gasInp) gasInp.value = getGasUrl();
 
   const roles = ['Director/a', 'Resp. Admisiones', 'Orientación', 'Jefatura de Estudios', 'Secretaría'];
   document.getElementById('adminTeamTable').innerHTML = (state.team || []).map((m, idx) => `
@@ -1902,7 +2017,11 @@ function importJSON(e) {
 
 // Inicialización
 populateOwnerFilter();
+updateSyncBadge();
 renderCurrentView();
+if (getGasUrl()) {
+  syncFromCloud(true);
+}
 </script>
 </body>
 </html>
